@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root{
   --bg:#EDF0F7; --surface:#FFFFFF; --soft:#F4F6FC; --ink:#12162B; --muted:#626985; --line:#E1E5F1;
@@ -51,6 +52,19 @@ h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
 .k{--c:var(--kerja)} .l{--c:var(--lembur)} .b{--c:var(--libur)}
+
+[hidden]{display:none!important}
+/* Login */
+#login{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px 16px}
+.login-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:28px;box-shadow:var(--shadow);padding:40px 28px 24px;text-align:center}
+.login-card h1{font-size:34px}
+.login-card .sub{margin:8px 0 30px;color:var(--muted);font-size:14px}
+#gbtn{display:flex;justify-content:center;min-height:44px}
+.login-msg{margin:16px 0 0;font-size:13px;color:#B45309;min-height:1.4em}
+.login-card .by{margin:22px 0 0;font-size:11px;color:var(--muted)}
+.hright{display:flex;align-items:center;gap:10px}
+.user{font-size:13px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.logout{height:42px;padding:0 14px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13px;box-shadow:var(--shadow)}
 
 /* Ringkasan */
 .strip{display:grid;grid-template-columns:1.5fr repeat(3,1fr);padding:0;overflow:hidden}
@@ -128,17 +142,32 @@ footer{margin:22px 4px 0;font-size:11px;text-align:center;color:var(--muted)}
   .panel{padding:16px;border-radius:20px}
   .axis,.row{grid-template-columns:78px 1fr 48px;gap:8px}
   .hide-s{display:none}
+  .user{display:none}
 }
 </style>
 </head>
 <body>
-<div class="wrap">
+<main id="login">
+  <div class="login-card">
+    <h1>ABSENSI</h1>
+    <p class="sub">Masuk dengan akun Google untuk membuka data.</p>
+    <div id="gbtn"></div>
+    <p class="login-msg" id="login-msg" role="alert"></p>
+    <p class="by">Created by Surki</p>
+  </div>
+</main>
+
+<div class="wrap" id="app" hidden>
   <header>
     <div>
       <h1>ABSENSI</h1>
       <p id="range"></p>
     </div>
-    <button class="theme" id="theme" aria-label="Ganti tema terang atau gelap" title="Ganti tema"></button>
+    <div class="hright">
+      <span class="user" id="user"></span>
+      <button class="logout" id="logout">Keluar</button>
+      <button class="theme" id="theme" aria-label="Ganti tema terang atau gelap" title="Ganti tema"></button>
+    </div>
   </header>
 
   <nav class="tabs" id="tabs" aria-label="Pilih periode"></nav>
@@ -552,10 +581,92 @@ function refresh(){
   }).catch(() => {});
 }
 
-renderAll();
-refresh();
-setInterval(refresh, REFRESH_MS);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+/* Login Google */
+const GOOGLE_CLIENT_ID = '646502783225-hqog8veq19lhuih9b8pc6pp2j5qjcuil.apps.googleusercontent.com';
+const ALLOWED_EMAILS = []; // contoh: ['nama@gmail.com']. Kosong = semua akun Google boleh masuk
+const SESSION_KEY = 'absensi_session';
+const SESSION_MS = 7*24*3600*1000;
+const store = {
+  get(){ try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch(e){ return null; } },
+  set(v){ try { localStorage.setItem(SESSION_KEY, JSON.stringify(v)); } catch(e){} },
+  clear(){ try { localStorage.removeItem(SESSION_KEY); } catch(e){} }
+};
+const decodeJwt = t => {
+  const p = t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+  return JSON.parse(decodeURIComponent(atob(p).split('').map(c => '%' + ('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+};
+let started = false;
+function startApp(){
+  if (started) return;
+  started = true;
+  renderAll();
+  refresh();
+  setInterval(refresh, REFRESH_MS);
+}
+function showApp(u){
+  $('#login').hidden = true;
+  $('#app').hidden = false;
+  $('#user').textContent = u.name || u.email || '';
+  startApp();
+}
+function showLogin(msg){
+  $('#app').hidden = true;
+  $('#login').hidden = false;
+  $('#login-msg').textContent = msg || '';
+}
+function onCredential(resp){
+  try {
+    const p = decodeJwt(resp.credential);
+    const email = (p.email || '').toLowerCase();
+    if (!email || p.email_verified === false) throw new Error('email');
+    if (ALLOWED_EMAILS.length && !ALLOWED_EMAILS.map(e => e.toLowerCase()).includes(email)) {
+      showLogin('Akun ' + email + ' tidak punya akses. Coba akun Google lain.');
+      return;
+    }
+    const u = {name:p.name, email, until:Date.now()+SESSION_MS};
+    store.set(u);
+    showApp(u);
+  } catch(e) {
+    showLogin('Gagal masuk. Coba lagi.');
+  }
+}
+function initGoogle(){
+  if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.startsWith('ISI_')) {
+    $('#login-msg').textContent = 'Client ID Google belum diisi. Isi GOOGLE_CLIENT_ID di bagian skrip.';
+    return;
+  }
+  const origin = location.origin && location.origin !== 'null' ? location.origin : '(tidak dikenali: file lokal atau pratinjau)';
+  const secure = location.protocol === 'https:' || location.hostname === 'localhost';
+  if (!secure) {
+    $('#login-msg').textContent = 'Google Sign-In hanya jalan dari alamat https yang sudah didaftarkan. Alamat saat ini: ' + origin;
+  }
+  try {
+    google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, callback:onCredential, auto_select:false});
+    google.accounts.id.renderButton($('#gbtn'), {theme:'outline', size:'large', shape:'pill', text:'signin_with', locale:'id', width:280});
+  } catch(e) {}
+  setTimeout(() => {
+    if (!$('#gbtn').childElementCount && !$('#login').hidden) {
+      $('#login-msg').textContent = 'Tombol Google tidak bisa dimuat. Daftarkan alamat ini di Authorized JavaScript origins: ' + origin;
+    }
+  }, 3000);
+}
+$('#logout').addEventListener('click', () => {
+  store.clear();
+  try { google.accounts.id.disableAutoSelect(); } catch(e){}
+  showLogin('');
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && started) refresh(); });
+
+(function boot(){
+  const ses = store.get();
+  if (ses && ses.until > Date.now()) { showApp(ses); }
+  else { store.clear(); showLogin(''); }
+  if (window.google && google.accounts) initGoogle();
+  else {
+    window.onGoogleLibraryLoad = initGoogle;
+    setTimeout(() => { if (!(window.google && google.accounts) && $('#login') && !$('#login').hidden) $('#login-msg').textContent = 'Google Sign-In tidak bisa dimuat. Periksa koneksi internet.'; }, 8000);
+  }
+})();
 </script>
 </body>
 </html>
