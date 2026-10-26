@@ -76,7 +76,8 @@ h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em}
 .strip{display:grid;grid-template-columns:1.5fr repeat(3,1fr);padding:0;overflow:hidden}
 .strip>div{padding:20px 22px;display:flex;flex-direction:column;justify-content:center;gap:2px}
 .strip>div+div{border-left:1px solid var(--line)}
-.strip>.donut{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;gap:16px 36px;border-left:0;border-bottom:1px solid var(--line);padding:22px}
+.strip>.strip-title{grid-column:1/-1;border-left:0;padding:20px 22px 0;display:block}
+.strip>.donut{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;gap:16px 36px;border-left:0;border-bottom:1px solid var(--line);padding:12px 22px 22px}
 .strip>.donut+.big{border-left:0}
 .donut svg{width:150px;height:150px;flex:none}
 .donut .d-num{font-size:22px;font-weight:800;fill:var(--ink);letter-spacing:-.02em}
@@ -270,20 +271,18 @@ function renderStrip(){
   const R = 48, CIRC = 2*Math.PI*R;
   const seg = (v, from, col) => v > 0 && total > 0
     ? `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${col}" stroke-width="16" stroke-dasharray="${(v/total*CIRC).toFixed(2)} ${CIRC.toFixed(2)}" stroke-dashoffset="${(-from/total*CIRC).toFixed(2)}" transform="rotate(-90 60 60)"/>` : '';
-  const pct = v => total > 0 ? Math.round(v/total*100) + '%' : '0%';
   const donut = `<div class="donut">
-      <svg viewBox="0 0 120 120" role="img" aria-label="Grafik bulat overtime ${MON[state.m-1]} ${state.y}: OT kerja ${fmt(lw.k)} jam, OT libur ${fmt(lw.l)} jam">
+      <svg viewBox="0 0 120 120" role="img" aria-label="Grafik bulat overtime ${MON[state.m-1]} ${state.y}">
         <circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--line)" stroke-width="16"/>
         ${seg(lw.k, 0, 'var(--kerja)')}${seg(lw.l, lw.k, 'var(--lembur)')}
-        <text class="d-num" x="60" y="62" text-anchor="middle">${fmt(total)}</text>
-        <text class="d-u" x="60" y="78" text-anchor="middle">jam</text>
       </svg>
       <div class="dlegend">
-        <div class="di"><i class="dot k"></i>OT kerja<b>${fmt(lw.k)}</b><em>${pct(lw.k)}</em></div>
-        <div class="di"><i class="dot l"></i>OT libur<b>${fmt(lw.l)}</b><em>${pct(lw.l)}</em></div>
+        <div class="di"><i class="dot k"></i>OT kerja</div>
+        <div class="di"><i class="dot l"></i>OT libur</div>
       </div>
     </div>`;
   $('#strip').innerHTML = `
+    <div class="strip-title"><h2>Grafik Absensi</h2></div>
     ${donut}
     <div class="big"><span class="num">${fmt(total)}</span><span class="unit">jam overtime di ${MON[state.m-1]} ${state.y}</span></div>
     <div class="stat"><b>${kerja}</b><span><i class="dot k"></i>Kerja</span></div>
