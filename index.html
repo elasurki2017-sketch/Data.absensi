@@ -238,15 +238,14 @@ const years = () => [...new Set(rows.map(r => r.y))].sort((a,b) => a-b);
 const monthsOf = y => [...new Set(rows.filter(r => r.y === y).map(r => r.m))].sort((a,b) => a-b);
 function pickMonth(){
   const ys = years();
+  const n = new Date();
   if (!ys.includes(state.y)) {
-    const n = new Date();
     state.y = ys.includes(n.getFullYear()) ? n.getFullYear() : ys[ys.length-1];
     state.m = null;
   }
-  const ms = monthsOf(state.y);
-  if (!ms.includes(state.m)) {
-    const n = new Date();
-    state.m = (state.y === n.getFullYear() && ms.includes(n.getMonth()+1)) ? n.getMonth()+1 : ms[ms.length-1];
+  if (!(state.m >= 1 && state.m <= 12)) {
+    const ms = monthsOf(state.y);
+    state.m = state.y === n.getFullYear() ? n.getMonth()+1 : (ms[ms.length-1] || 1);
   }
 }
 const scope = () => rows.filter(r => r.y === state.y && r.m === state.m);
@@ -255,7 +254,7 @@ function renderHead(){
   const f = rows[0], l = rows[rows.length-1];
   $('#range').textContent = 'Mr. Takuya Yokohama - Surki';
   $('#sel-y').innerHTML = years().map(y => `<option value="${y}"${y===state.y?' selected':''}>${y}</option>`).join('');
-  $('#sel-m').innerHTML = monthsOf(state.y).map(m => `<option value="${m}"${m===state.m?' selected':''}>${MON[m-1]}</option>`).join('');
+  $('#sel-m').innerHTML = MON.map((_,i) => i+1).map(m => `<option value="${m}"${m===state.m?' selected':''}>${MON[m-1]}</option>`).join('');
 }
 
 function renderStrip(){
@@ -345,7 +344,7 @@ function renderTable(){
   $('#chips').innerHTML = chips.map(([v,t]) => `<button data-f="${v}" aria-pressed="${state.f===v}">${t}</button>`).join('');
   let rs = scope().filter(r => state.f === 'all' || r.s === state.f);
   rs = [...rs].sort((a,b) => state.desc ? (a.d < b.d ? 1 : -1) : (a.d < b.d ? -1 : 1));
-  if (!rs.length) { $('#table').innerHTML = '<div class="empty">Tidak ada data untuk filter ini.</div>'; return; }
+  if (!rs.length) { $('#table').innerHTML = `<div class="empty">${scope().length ? 'Tidak ada data untuk filter ini.' : 'Belum ada data absensi di ' + MON[state.m-1] + ' ' + state.y + '.'}</div>`; return; }
   const dur = r => r.a === null ? '–' : fmt((r.b-r.a)/60);
   const weekOf = r => {
     const mon = new Date(r.y, r.m-1, r.dd - (r.date.getDay()+6)%7);
@@ -411,7 +410,7 @@ document.addEventListener('click', e => {
   else if (t.id === 'sort') { state.desc = !state.desc; renderTable(); }
 });
 
-$('#sel-y').addEventListener('change', e => { state.y = +e.target.value; state.m = null; pickMonth(); renderAll(); });
+$('#sel-y').addEventListener('change', e => { state.y = +e.target.value; renderAll(); });
 $('#sel-m').addEventListener('change', e => { state.m = +e.target.value; renderAll(); });
 
 /* Tema */
