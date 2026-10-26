@@ -76,6 +76,15 @@ h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em}
 .strip{display:grid;grid-template-columns:1.5fr repeat(3,1fr);padding:0;overflow:hidden}
 .strip>div{padding:20px 22px;display:flex;flex-direction:column;justify-content:center;gap:2px}
 .strip>div+div{border-left:1px solid var(--line)}
+.strip>.donut{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;gap:16px 36px;border-left:0;border-bottom:1px solid var(--line);padding:22px}
+.strip>.donut+.big{border-left:0}
+.donut svg{width:150px;height:150px;flex:none}
+.donut .d-num{font-size:22px;font-weight:800;fill:var(--ink);letter-spacing:-.02em}
+.donut .d-u{font-size:10.5px;fill:var(--muted)}
+.dlegend{display:flex;flex-direction:column;gap:12px;min-width:180px}
+.dlegend .di{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
+.dlegend .di b{margin-left:auto;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+.dlegend .di em{font-style:normal;width:40px;text-align:right;font-variant-numeric:tabular-nums}
 .strip .big .num{font-size:clamp(44px,7vw,68px);font-weight:800;letter-spacing:-.045em;line-height:1;font-variant-numeric:tabular-nums}
 .strip .big .unit{color:var(--muted);font-size:14px;font-weight:500}
 .strip .stat b{font-size:28px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -186,15 +195,6 @@ footer{margin:22px 4px 0;font-size:11px;text-align:center;color:var(--muted)}
   <section class="panel strip" id="strip" aria-label="Ringkasan"></section>
   <p class="insight" id="insight"></p>
 
-  <section class="panel" aria-labelledby="h-chart">
-    <div class="panel-head">
-      <h2 id="h-chart">Overtime</h2>
-      <div class="legend" id="chart-legend"></div>
-    </div>
-    <div class="chart" id="chart"></div>
-    <p class="note" id="chart-note"></p>
-  </section>
-
   <section class="panel" aria-labelledby="h-table">
     <div class="panel-head">
       <h2 id="h-table">Rincian absensi</h2>
@@ -267,7 +267,24 @@ function renderStrip(){
     if (r.s === 'K') lw.k += r.ot; else if (r.s === 'L') lw.l += r.ot;
     lw.t += r.ot;
   });
+  const R = 48, CIRC = 2*Math.PI*R;
+  const seg = (v, from, col) => v > 0 && total > 0
+    ? `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${col}" stroke-width="16" stroke-dasharray="${(v/total*CIRC).toFixed(2)} ${CIRC.toFixed(2)}" stroke-dashoffset="${(-from/total*CIRC).toFixed(2)}" transform="rotate(-90 60 60)"/>` : '';
+  const pct = v => total > 0 ? Math.round(v/total*100) + '%' : '0%';
+  const donut = `<div class="donut">
+      <svg viewBox="0 0 120 120" role="img" aria-label="Grafik bulat overtime ${MON[state.m-1]} ${state.y}: OT kerja ${fmt(lw.k)} jam, OT libur ${fmt(lw.l)} jam">
+        <circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--line)" stroke-width="16"/>
+        ${seg(lw.k, 0, 'var(--kerja)')}${seg(lw.l, lw.k, 'var(--lembur)')}
+        <text class="d-num" x="60" y="62" text-anchor="middle">${fmt(total)}</text>
+        <text class="d-u" x="60" y="78" text-anchor="middle">jam</text>
+      </svg>
+      <div class="dlegend">
+        <div class="di"><i class="dot k"></i>OT kerja<b>${fmt(lw.k)}</b><em>${pct(lw.k)}</em></div>
+        <div class="di"><i class="dot l"></i>OT libur<b>${fmt(lw.l)}</b><em>${pct(lw.l)}</em></div>
+      </div>
+    </div>`;
   $('#strip').innerHTML = `
+    ${donut}
     <div class="big"><span class="num">${fmt(total)}</span><span class="unit">jam overtime di ${MON[state.m-1]} ${state.y}</span></div>
     <div class="stat"><b>${kerja}</b><span><i class="dot k"></i>Kerja</span></div>
     <div class="stat"><b>${lembur}</b><span><i class="dot l"></i>Lembur</span></div>
@@ -303,40 +320,6 @@ function renderRibbon(){
       <span class="ot ${r.ot===0?'zero':''}">${r.ot===0?'0':'+'+fmt(r.ot)}</span></div>`;
   }).join('');
   $('#ribbon').innerHTML = head + body;
-}
-
-function niceMax(v){
-  for (const s of [1,2,2.5,5,10,20,25,50,100,200]) { const n = Math.ceil(v/s); if (n <= 5) return {step:s, max:n*s}; }
-  return {step:100, max:Math.ceil(v/100)*100};
-}
-
-function renderChart(){
-  const all = false;
-  const data = scope().map(r => ({label:String(r.dd), v:r.ot, cls:CL[r.s], rest:r.s==='B', tip:`${lbl(r)}: ${fmt(r.ot)} jam`}));
-  const W = 640, H = 240, pl = 34, pr = 6, pt = 18, pb = 26;
-  const {step,max} = niceMax(Math.max(...data.map(d => d.v), 1));
-  const iw = W-pl-pr, ih = H-pt-pb, st = iw/data.length, bw = Math.min(56, st*0.62);
-  const y = v => pt + ih*(1 - v/max);
-  let g = '';
-  for (let t = 0; t <= max+0.001; t += step) {
-    g += `<line x1="${pl}" x2="${W-pr}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${pl-8}" y="${y(t)+4}" text-anchor="end">${fmt(t)}</text>`;
-  }
-  const bars = data.map((d,i) => {
-    const x = pl + st*i + (st-bw)/2, h = Math.max(0, ih*d.v/max);
-    const col = `var(--${d.cls==='k'?'kerja':d.cls==='l'?'lembur':'libur'})`;
-    let s = '';
-    if (d.v > 0) s += `<rect x="${x}" y="${y(d.v)}" width="${bw}" height="${h}" rx="${Math.min(8,bw/2)}" fill="${col}" ${d.partial?'fill-opacity=".55"':''}><title>${d.tip || d.label+': '+fmt(d.v)+' jam'}</title></rect>`;
-    else if (!all) s += `<rect x="${x}" y="${y(0)-2}" width="${bw}" height="2" rx="1" fill="${d.rest?'var(--libur)':'var(--line)'}"/>`;
-    if (all) s += `<text class="val" x="${x+bw/2}" y="${y(d.v)-7}" text-anchor="middle">${fmt(d.v)}</text>`;
-    s += `<text x="${x+bw/2}" y="${H-8}" text-anchor="middle">${d.label}</text>`;
-    return s;
-  }).join('');
-  $('#chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafik batang overtime ${all?'per bulan':'per hari di '+MON[state.m-1]+' '+state.y}">${g}${bars}</svg>`;
-  $('#chart-legend').innerHTML = all
-    ? '<span>Total jam per bulan</span>'
-    : '<span><i class="dot k"></i>Kerja</span><span><i class="dot l"></i>Lembur</span><span><i class="dot b"></i>Libur (garis teal)</span>';
-  const part = all ? data.filter(d => d.partial) : [];
-  $('#chart-note').textContent = part.length ? `* Bulan belum penuh, data sampai tanggal ${part[0].lastDay}.` : '';
 }
 
 function renderTable(){
@@ -401,7 +384,7 @@ function setStatus(kind){
 function renderAll(){
   $('#app').classList.toggle('nodata', !rows.length);
   if (!rows.length) return;
-  renderHead(); renderStrip(); renderChart(); renderTable();
+  renderHead(); renderStrip(); renderTable();
 }
 
 document.addEventListener('click', e => {
