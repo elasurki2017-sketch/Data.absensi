@@ -40,9 +40,11 @@ header p{margin:6px 0 0;color:var(--muted);font-size:14px}
 .theme{flex:none;width:42px;height:42px;border-radius:14px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;box-shadow:var(--shadow)}
 .theme svg{width:20px;height:20px}
 
-.tabs{display:flex;gap:4px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:16px;width:max-content;max-width:100%;overflow-x:auto;box-shadow:var(--shadow);margin-bottom:16px}
-.tabs button{border:0;background:transparent;padding:8px 16px;border-radius:12px;font-weight:600;font-size:14px;color:var(--muted);white-space:nowrap}
-.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.period{display:flex;gap:10px;margin-bottom:16px}
+.period label{display:block}
+.period select{appearance:none;-webkit-appearance:none;font:inherit;font-weight:600;font-size:14px;color:var(--ink);background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23626985' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 14px center;border:1px solid var(--line);border-radius:14px;padding:10px 36px 10px 16px;min-height:42px;box-shadow:var(--shadow);cursor:pointer}
+#sel-m{min-width:150px}
+#sel-y{min-width:96px}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);padding:20px}
 .panel+.panel,.panel+.insight,.insight+.panel{margin-top:16px}
@@ -65,6 +67,10 @@ h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em}
 .hright{display:flex;align-items:center;gap:10px}
 .user{font-size:13px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .logout{height:42px;padding:0 14px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13px;box-shadow:var(--shadow)}
+
+#status{display:none;color:var(--muted);font-size:14px;text-align:center;padding:28px 20px}
+.nodata #status{display:block}
+.nodata .period,.nodata .strip,.nodata .insight,.nodata section.panel:not(#status){display:none}
 
 /* Ringkasan */
 .strip{display:grid;grid-template-columns:1.5fr repeat(3,1fr);padding:0;overflow:hidden}
@@ -170,7 +176,12 @@ footer{margin:22px 4px 0;font-size:11px;text-align:center;color:var(--muted)}
     </div>
   </header>
 
-  <nav class="tabs" id="tabs" aria-label="Pilih periode"></nav>
+  <section class="panel" id="status" role="status"></section>
+
+  <div class="period" role="group" aria-label="Pilih periode">
+    <label><select id="sel-m" aria-label="Bulan"></select></label>
+    <label><select id="sel-y" aria-label="Tahun"></select></label>
+  </div>
 
   <section class="panel strip" id="strip" aria-label="Ringkasan"></section>
   <p class="insight" id="insight"></p>
@@ -196,125 +207,7 @@ footer{margin:22px 4px 0;font-size:11px;text-align:center;color:var(--muted)}
 </div>
 
 <script>
-const RAW = `
-2026-07-01,K,06:00,21:00,6
-2026-07-02,K,06:00,22:00,7
-2026-07-03,K,04:00,17:30,4.5
-2026-07-04,B,,,0
-2026-07-05,L,11:00,16:00,5
-2026-07-06,K,06:00,22:00,7
-2026-07-07,K,07:00,22:00,6
-2026-07-08,K,06:00,22:00,7
-2026-07-09,K,06:00,22:30,7.5
-2026-07-10,K,06:00,20:00,5
-2026-07-11,L,04:00,21:00,16
-2026-07-12,B,,,0
-2026-07-13,K,06:00,19:00,4
-2026-07-14,K,08:00,22:00,5
-2026-07-15,K,06:00,22:30,7.5
-2026-07-16,K,06:00,21:00,6
-2026-07-17,K,07:00,22:00,6
-2026-07-18,L,09:00,21:00,11
-2026-07-19,L,17:00,00:00,7
-2026-07-20,K,06:00,00:00,9
-2026-07-21,K,05:30,17:00,2.5
-2026-07-22,K,08:00,19:00,2
-2026-07-23,K,06:00,23:00,8
-2026-07-24,K,06:00,00:00,9
-2026-07-25,L,09:00,21:00,11
-2026-07-26,L,12:00,22:30,9.5
-2026-07-27,K,06:00,22:30,7.5
-2026-07-28,K,06:00,20:00,5
-2026-07-29,K,06:00,22:00,7
-2026-07-30,K,06:00,19:00,4
-2026-07-31,K,06:00,23:00,8
-2026-08-01,L,06:30,23:00,15.5
-2026-08-02,L,04:00,21:30,16.5
-2026-08-03,K,06:00,21:00,6
-2026-08-04,K,06:00,22:00,7
-2026-08-05,K,06:00,22:00,7
-2026-08-06,K,07:00,22:00,6
-2026-08-07,K,06:00,20:00,5
-2026-08-08,L,07:00,16:30,8.5
-2026-08-09,L,12:00,18:00,6
-2026-08-10,K,07:00,18:30,2.5
-2026-08-11,K,06:00,19:30,4.5
-2026-08-12,K,06:00,21:30,6.5
-2026-08-13,K,05:00,17:30,3.5
-2026-08-14,K,08:00,17:30,0.5
-2026-08-15,L,04:00,17:30,12.5
-2026-08-16,L,04:00,22:30,17.5
-2026-08-17,B,,,0
-2026-08-18,K,07:00,22:30,6.5
-2026-08-19,K,06:00,21:00,6
-2026-08-20,K,06:00,22:00,7
-2026-08-21,K,06:00,22:00,7
-2026-08-22,L,06:00,18:00,11
-2026-08-23,L,10:00,20:00,9
-2026-08-24,K,06:00,22:00,7
-2026-08-25,B,,,0
-2026-08-26,K,06:00,22:00,7
-2026-08-27,K,08:00,17:00,0
-2026-08-28,K,08:00,22:00,5
-2026-08-29,K,07:30,18:00,1.5
-2026-08-30,L,04:00,22:00,17
-2026-08-31,K,06:00,22:30,7.5
-2026-09-01,K,08:00,21:00,4
-2026-09-02,K,06:00,22:00,7
-2026-09-03,K,05:00,21:00,7
-2026-09-04,K,08:00,20:00,3
-2026-09-05,L,04:00,20:00,15
-2026-09-06,B,,,0
-2026-09-07,K,06:00,22:30,7.5
-2026-09-08,K,08:00,22:00,5
-2026-09-09,K,06:00,21:30,6.5
-2026-09-10,K,06:00,20:00,5
-2026-09-11,K,06:00,22:00,7
-2026-09-12,L,08:00,18:00,9
-2026-09-13,B,,,0
-2026-09-14,K,05:00,23:00,9
-2026-09-15,K,08:00,23:00,6
-2026-09-16,K,06:00,21:30,6.5
-2026-09-17,K,08:00,21:00,4
-2026-09-18,K,08:00,20:00,3
-2026-09-19,L,06:00,14:00,8
-2026-09-20,L,10:00,20:00,9
-2026-09-21,K,08:00,17:00,0
-2026-09-22,K,08:00,19:00,2
-2026-09-23,K,06:00,21:30,6.5
-2026-09-24,K,08:00,22:30,5.5
-2026-09-25,K,06:00,21:00,6
-2026-09-26,L,05:00,15:00,9
-2026-09-27,L,12:00,22:00,9
-2026-09-28,K,06:00,22:00,7
-2026-09-29,K,04:00,22:30,9.5
-2026-09-30,K,06:00,20:00,5
-2026-10-01,K,08:00,21:30,4.5
-2026-10-02,K,08:00,22:00,5
-2026-10-03,L,07:00,18:00,10
-2026-10-04,L,06:00,14:00,8
-2026-10-05,K,08:00,22:00,5
-2026-10-06,K,08:00,22:00,5
-2026-10-07,K,06:00,22:00,7
-2026-10-08,K,05:00,20:30,6.5
-2026-10-09,K,04:00,18:00,5
-2026-10-10,B,,,0
-2026-10-11,L,10:00,15:00,5
-2026-10-12,K,08:00,17:00,0
-2026-10-13,K,08:00,17:00,0
-2026-10-14,K,07:00,17:00,1
-2026-10-15,K,08:00,17:00,0
-2026-10-16,K,07:00,20:00,4
-2026-10-17,L,05:30,18:30,12
-2026-10-18,L,08:30,17:30,8
-2026-10-19,K,04:00,17:00,4
-2026-10-20,K,08:00,18:00,1
-2026-10-21,K,04:00,19:00,6
-2026-10-22,K,08:00,17:00,0
-2026-10-23,K,06:00,20:00,5
-2026-10-24,L,04:00,17:00,12
-2026-10-25,L,13:00,17:00,4
-`;
+
 
 const ST = {K:'Kerja', L:'Lembur', B:'Libur'};
 const CL = {K:'k', L:'l', B:'b'};
@@ -330,9 +223,8 @@ const mk = (d,s,i,o,ot) => {
   return {d,y,m,dd,date:new Date(y,m-1,dd),s,i,o,a,b,ot:+ot};
 };
 const byDate = (x,y) => x.d < y.d ? -1 : 1;
-let rows = RAW.trim().split('\n').map(line => mk(...line.trim().split(','))).sort(byDate);
+let rows = [];
 
-let months = [...new Set(rows.map(r => r.m))];
 const fmt = n => n.toLocaleString('id-ID',{maximumFractionDigits:1});
 const wdShort = r => r.date.toLocaleDateString('id-ID',{weekday:'short'});
 const wdLong = r => r.date.toLocaleDateString('id-ID',{weekday:'long'});
@@ -341,16 +233,29 @@ const sum = rs => rs.reduce((t,r) => t + r.ot, 0);
 const cnt = (rs,s) => rs.filter(r => r.s === s).length;
 const $ = s => document.querySelector(s);
 
-const _now = new Date();
-const _cur = rows.find(r => r.y === _now.getFullYear() && r.m === _now.getMonth()+1);
-const state = {m:(_cur || rows[rows.length-1]).m, f:'all', desc:false};
-const scope = () => state.m === 'all' ? rows : rows.filter(r => r.m === state.m);
+const state = {y:null, m:null, f:'all', desc:false};
+const years = () => [...new Set(rows.map(r => r.y))].sort((a,b) => a-b);
+const monthsOf = y => [...new Set(rows.filter(r => r.y === y).map(r => r.m))].sort((a,b) => a-b);
+function pickMonth(){
+  const ys = years();
+  if (!ys.includes(state.y)) {
+    const n = new Date();
+    state.y = ys.includes(n.getFullYear()) ? n.getFullYear() : ys[ys.length-1];
+    state.m = null;
+  }
+  const ms = monthsOf(state.y);
+  if (!ms.includes(state.m)) {
+    const n = new Date();
+    state.m = (state.y === n.getFullYear() && ms.includes(n.getMonth()+1)) ? n.getMonth()+1 : ms[ms.length-1];
+  }
+}
+const scope = () => rows.filter(r => r.y === state.y && r.m === state.m);
 
 function renderHead(){
   const f = rows[0], l = rows[rows.length-1];
   $('#range').textContent = 'Mr. Takuya Yokohama - Surki';
-  $('#tabs').innerHTML = months.map(m => [m, MS[m-1]])
-    .map(([v,t]) => `<button data-m="${v}" aria-pressed="${state.m===v}">${t}</button>`).join('');
+  $('#sel-y').innerHTML = years().map(y => `<option value="${y}"${y===state.y?' selected':''}>${y}</option>`).join('');
+  $('#sel-m').innerHTML = monthsOf(state.y).map(m => `<option value="${m}"${m===state.m?' selected':''}>${MON[m-1]}</option>`).join('');
 }
 
 function renderStrip(){
@@ -364,7 +269,7 @@ function renderStrip(){
     lw.t += r.ot;
   });
   $('#strip').innerHTML = `
-    <div class="big"><span class="num">${fmt(total)}</span><span class="unit">jam overtime ${state.m==='all'?'sepanjang periode':'di '+MON[state.m-1]}</span></div>
+    <div class="big"><span class="num">${fmt(total)}</span><span class="unit">jam overtime di ${MON[state.m-1]} ${state.y}</span></div>
     <div class="stat"><b>${kerja}</b><span><i class="dot k"></i>Kerja</span></div>
     <div class="stat"><b>${lembur}</b><span><i class="dot l"></i>Lembur</span></div>
     <div class="stat"><b>${libur}</b><span><i class="dot b"></i>Libur</span></div>
@@ -375,11 +280,6 @@ function renderStrip(){
 
   const top = rs.reduce((a,r) => r.ot > a.ot ? r : a, rs[0]);
   let text = '';
-  if (state.m === 'all') {
-    const per = months.map(m => [m, sum(rows.filter(r => r.m === m))]);
-    const best = per.reduce((a,p) => p[1] > a[1] ? p : a, per[0]);
-    text += `Overtime terbanyak ada di <strong>${MON[best[0]-1]}</strong> (${fmt(best[1])} jam). `;
-  }
   $('#insight').innerHTML = text;
 }
 
@@ -412,18 +312,8 @@ function niceMax(v){
 }
 
 function renderChart(){
-  const all = state.m === 'all';
-  let data;
-  if (all) {
-    data = months.map(m => {
-      const rs = rows.filter(r => r.m === m);
-      const last = rs[rs.length-1];
-      const dim = new Date(last.y, m, 0).getDate();
-      return {label: MS[m-1] + (last.dd < dim ? '*' : ''), v: sum(rs), cls:'k', partial:last.dd < dim, lastDay:last.dd};
-    });
-  } else {
-    data = rows.filter(r => r.m === state.m).map(r => ({label:String(r.dd), v:r.ot, cls:CL[r.s], rest:r.s==='B', tip:`${lbl(r)}: ${fmt(r.ot)} jam`}));
-  }
+  const all = false;
+  const data = scope().map(r => ({label:String(r.dd), v:r.ot, cls:CL[r.s], rest:r.s==='B', tip:`${lbl(r)}: ${fmt(r.ot)} jam`}));
   const W = 640, H = 240, pl = 34, pr = 6, pt = 18, pb = 26;
   const {step,max} = niceMax(Math.max(...data.map(d => d.v), 1));
   const iw = W-pl-pr, ih = H-pt-pb, st = iw/data.length, bw = Math.min(56, st*0.62);
@@ -442,7 +332,7 @@ function renderChart(){
     s += `<text x="${x+bw/2}" y="${H-8}" text-anchor="middle">${d.label}</text>`;
     return s;
   }).join('');
-  $('#chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafik batang overtime ${all?'per bulan':'per hari di '+MON[state.m-1]}">${g}${bars}</svg>`;
+  $('#chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafik batang overtime ${all?'per bulan':'per hari di '+MON[state.m-1]+' '+state.y}">${g}${bars}</svg>`;
   $('#chart-legend').innerHTML = all
     ? '<span>Total jam per bulan</span>'
     : '<span><i class="dot k"></i>Kerja</span><span><i class="dot l"></i>Lembur</span><span><i class="dot b"></i>Libur (garis teal)</span>';
@@ -501,14 +391,28 @@ function renderTable(){
     </tbody></table>`;
 }
 
-function renderAll(){ renderHead(); renderStrip(); renderChart(); renderTable(); }
+function setStatus(kind){
+  const t = {
+    loading:'Memuat data dari Google Sheets…',
+    error:'Data tidak bisa dibaca dari Google Sheets. Pastikan spreadsheet dibagikan: Bagikan → Akses umum → Siapa saja yang memiliki link → Pelihat. Lalu muat ulang halaman.',
+    empty:'Spreadsheet terbaca, tetapi belum ada baris absensi yang valid di sheet 2026.'
+  }[kind] || '';
+  $('#status').textContent = t;
+}
+function renderAll(){
+  $('#app').classList.toggle('nodata', !rows.length);
+  if (!rows.length) return;
+  renderHead(); renderStrip(); renderChart(); renderTable();
+}
 
 document.addEventListener('click', e => {
   const t = e.target.closest('button'); if (!t) return;
-  if (t.dataset.m !== undefined) { state.m = t.dataset.m === 'all' ? 'all' : +t.dataset.m; renderAll(); }
-  else if (t.dataset.f !== undefined) { state.f = t.dataset.f; renderTable(); }
+  if (t.dataset.f !== undefined) { state.f = t.dataset.f; renderTable(); }
   else if (t.id === 'sort') { state.desc = !state.desc; renderTable(); }
 });
+
+$('#sel-y').addEventListener('change', e => { state.y = +e.target.value; state.m = null; pickMonth(); renderAll(); });
+$('#sel-m').addEventListener('change', e => { state.m = +e.target.value; renderAll(); });
 
 /* Tema */
 const root = document.documentElement;
@@ -570,20 +474,20 @@ let _sig = sigOf(rows);
 
 function refresh(){
   fetchSheet().then(parseSheet).then(rs => {
-    if (!rs.length) return;
+    if (!rs.length) { if (!rows.length) setStatus('empty'); return; }
     const sg = sigOf(rs);
-    if (sg === _sig) return;
+    if (sg === _sig && rows.length) return;
     _sig = sg;
     rows = rs;
-    months = [...new Set(rows.map(r => r.m))];
-    if (!months.includes(state.m)) state.m = months[months.length-1];
+    pickMonth();
+    setStatus('');
     renderAll();
-  }).catch(() => {});
+  }).catch(() => { if (!rows.length) setStatus('error'); });
 }
 
 /* Login Google */
 const GOOGLE_CLIENT_ID = '646502783225-hqog8veq19lhuih9b8pc6pp2j5qjcuil.apps.googleusercontent.com';
-const ALLOWED_EMAILS = ['elasurki2017@gmail.com' ]; // contoh: ['nama@gmail.com']. Kosong = semua akun Google boleh masuk
+const ALLOWED_EMAILS = ['elasurki2017@gmail.com']; // contoh: ['nama@gmail.com']. Kosong = semua akun Google boleh masuk
 const SESSION_KEY = 'absensi_session';
 const SESSION_MS = 7*24*3600*1000;
 const store = {
@@ -599,6 +503,7 @@ let started = false;
 function startApp(){
   if (started) return;
   started = true;
+  setStatus('loading');
   renderAll();
   refresh();
   setInterval(refresh, REFRESH_MS);
@@ -659,7 +564,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && st
 
 (function boot(){
   const ses = store.get();
-  if (ses && ses.until > Date.now()) { showApp(ses); }
+  const okEmail = ses && (!ALLOWED_EMAILS.length || ALLOWED_EMAILS.map(e => e.toLowerCase()).includes((ses.email||'').toLowerCase()));
+  if (ses && okEmail && ses.until > Date.now()) { showApp(ses); }
   else { store.clear(); showLogin(''); }
   if (window.google && google.accounts) initGoogle();
   else {
